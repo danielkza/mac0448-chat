@@ -1,0 +1,67 @@
+- Protocolo (ASCII):
+  - Formato das mensagens
+  - Transferência de arquivos
+  - JSON
+- Guardar lista de clientes conectados (TCP e UDP separados)
+- Guardar lista de conversas, ou perguntar para cada cliente se está ocupado?
+- Troca de portas dos clientes através do servidor
+- Log de eventos
+- Heartbeat (servidor->cliente ou contŕario?)
+- Abstrair TCP e UDP p/ compartilhar código
+- TLS no servidor
+- Handshake p/ início de conversa client-client
+  (verificação de IP? segredos? verificação com servidor?)
+-
+
+
+Tipos de mensagens:
+    - Comando
+        - Servidor <-> Cliente
+            - Login
+            - Logout
+            - Heartbeat
+            - Listar usuários conectados
+            - Soliciar início de conversa com outro cliente
+            - Solicitação de ínicio de conversa (vindo do servidor)
+            - Notificação p/ servidor de que cliente saiu de uma conversa
+            - Notificação p/ cliente de que outro lado sumiu (logout)
+        - Cliente <-> Cliente
+            - Iniciar conexão
+            - Terminar conexão
+            - Enviar mensagem
+            - Iniciar envio de arquivo
+    - Resposta
+        - Servidor <-> Cliente
+            - Login
+                - OK
+                - Já tem alguém com esse nome logado, fuck you
+            - Logout
+                - OK
+                - Não logado, fuck you
+            - Heartbeat
+                - OK
+            - Listar usuários conecetados,
+                - OK, aqui está a lista
+            - Soliciar início de conversa com outro cliente
+                - Timeout
+                - Ok, cliente B ounvindo ip X porta Y
+                - Cliente B não pode conversar
+            - Solicitação de ínicio de conversa (vindo do servidor)
+                - ok, abri porta Y
+                - conexao negada
+            - Notificação p/ servidor de que cliente saiu de uma conversa
+            - Notificação p/ cliente de que outro lado sumiu (logout)
+
+        - Cliente <-> Cliente
+            - Iniciar conexao
+                -ok
+                - não te conheço
+            - Terminar conexão
+                - ok
+            - Enviar mensagem
+                - ok, comece
+                - negado
+
+    - Dados binários
+    - Heartbeat
+
