@@ -7,6 +7,7 @@ class MessageError(RuntimeError):
 
 class Message(object):
     arg_types = ()
+    parse_args = True
     command = 'NOP'
 
     def __init__(self):
@@ -14,26 +15,17 @@ class Message(object):
 
     @classmethod
     def args_from_string(cls, s):
-        args = []
-        try:
-            for i, type_ in enumerate(cls.arg_types):
-                if i == len(cls.arg_types)-1 and type_ == str:
-                    args.append(s)
-                elif not s:
-                    break
-                else:
-                    parts = s.split(" ", 1)
-                    args.append(cls.arg_types[i](parts[0]))
+        if not cls.parse_args:
+            return [s]
 
-                    if len(parts) == 1:
-                        break
-
-                    s = parts[1]
-        except ValueError:
-            pass
-
+        args = s.split(" ") if s else []
         if len(args) != len(cls.arg_types):
             raise MessageError("Invalid number or arguments for message")
+
+        try:
+            map(lambda (arg, type_): type_(arg), zip(args, cls.arg_types))
+        except ValueError:
+            raise MessageError("Failed to parse argument")
 
         return args
 
