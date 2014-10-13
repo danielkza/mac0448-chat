@@ -10,6 +10,7 @@ from communic8.model.messages import *
 
 class ServerProtocol(LineOnlyReceiver, StateMachine):
     states = {
+        'waiting_connection'
         'waiting_login',
         'logged_in',
         'starting_chat',
@@ -19,9 +20,10 @@ class ServerProtocol(LineOnlyReceiver, StateMachine):
         'ending'
     }
 
-    transitions = {
+    allowed_transitions = {
         'all':                       {'ending'},
-        'waiting_login':             {'logged_in', 'ending'},
+        'waiting_connection':        {'waiting_login'},
+        'waiting_login':             {'waiting_connection','logged_in'},
         'logged_in':                 {'starting_chat', 'waiting_chat_acceptance_self'},
         'starting_chat':             {'waiting_chat_acceptance_other', 'logged_in'},
         'waiting_chat_accept_other': {'chatting', 'logged_in'},
@@ -30,7 +32,7 @@ class ServerProtocol(LineOnlyReceiver, StateMachine):
     }
 
     def __init__(self, user_database, dispatcher):
-        StateMachine.__init__(self, 'waiting_login')
+        StateMachine.__init__(self, 'waiting_connection')
 
         self.user_database = user_database
         self.dispatcher = dispatcher
@@ -44,8 +46,10 @@ class ServerProtocol(LineOnlyReceiver, StateMachine):
             message = self.dispatcher.parse_message(line)
         except MessageError:
             self.send_json({'state': 'error', 'message': 'Invalid message'})
-        else:
-            self.send_json({'state': 'OK', 'message': 'Received message {0}'.format(message.command)})
+            return
+        self.send_json({'state': 'OK', 'message': 'Received message {0}'.format(message.command)})
+
+
 
 
 class ServerFactory(Factory):
@@ -61,6 +65,11 @@ class ServerFactory(Factory):
         d.add_message(ChatAccept)
         d.add_message(ChatRequested)
         d.add_message(ChatConfirmed)
+        d.add_message(Login)
+        d.add_message(SendChat)
+        d.add_message(Logout)
+
+
 
     def buildProtocol(self, addr):
         return ServerProtocol(self.users, self.dispatcher)

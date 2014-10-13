@@ -63,11 +63,24 @@ class Connect(Message):
     command = "CONNECT"
     arg_types = ()
 
+class Login(Message):
+    command = "LOGIN"
+    arg_types = (str, )
+
+    def __init__(self, user):
+        super(Login, self).__init__()
+        self.user = user
+
+    def args(self):
+        return [self.user]
 
 class Quit(Message):
     command = "QUIT"
     arg_types = ()
 
+class Logout(Message):
+    command = "LOGOUT"
+    arg_types = ()
 
 class Alive(Message):
     command = "ALIVE"
@@ -128,6 +141,18 @@ class ChatConfirmed(Message):
 
     def args(self):
         return [self.user, self.ip, self.port]
+
+class SendChat(Message):
+    command = "SEND_CHAT"
+    arg_types = (str, )
+    parse_args = False
+
+    def __init__(self, message):
+        super(SendChat, self).__init__()
+        self. message = message
+
+    def args(self):
+        return [self.message]
 
 
 def test():
