@@ -1,4 +1,5 @@
 import ipaddr
+from itertools import chain
 
 
 class MessageError(RuntimeError):
@@ -32,24 +33,26 @@ class Message(object):
     def args(self):
         return []
 
+    def __str__(self):
+        return ' '.join(chain((self.command,), map(str, self.args)))
+
 
 class MessageDispatcher(object):
     def __init__(self):
         self.types = {}
 
-    def add_message(self, message_type):
-        if message_type.command in self.types:
-            raise MessageError("Message type is already registered")
+    def register(self, *types):
+        for type_ in types:
+            if type_.command in self.types:
+                raise MessageError("Message type is already registered")
 
-        self.types[message_type.command] = message_type
+        self.types.update((type_.command, type_) for type_ in types)
+        return self
 
-    def parse_message(self, s):
-        print 'parse_message: ' + s
+    def parse(self, s):
         parts = s.split(' ', 1)
         command = parts[0]
         args = parts[1] if len(parts) > 1 else ''
-
-        print 'command: {0}, args: {1}'.format(command, args)
 
         try:
             type_ = self.types[command]
@@ -63,6 +66,12 @@ class Connect(Message):
     command = "CONNECT"
     arg_types = ()
 
+
+class Quit(Message):
+    command = "QUIT"
+    arg_types = ()
+
+
 class Login(Message):
     command = "LOGIN"
     arg_types = (str, )
@@ -74,16 +83,9 @@ class Login(Message):
     def args(self):
         return [self.user]
 
-class Quit(Message):
-    command = "QUIT"
-    arg_types = ()
 
 class Logout(Message):
     command = "LOGOUT"
-    arg_types = ()
-
-class Alive(Message):
-    command = "ALIVE"
     arg_types = ()
 
 
@@ -92,12 +94,12 @@ class ListUsers(Message):
     arg_types = ()
 
 
-class ChatStart(Message):
-    command = "CHAT_START"
+class RequestChat(Message):
+    command = "REQUEST_CHAT"
     arg_types = (str, )
 
     def __init__(self, user):
-        super(ChatStart, self).__init__()
+        super(RequestChat, self).__init__()
         self.user = user
 
     def args(self):
@@ -110,18 +112,18 @@ class ChatRequested(Message):
 
     def __init__(self, user):
         super(ChatRequested, self).__init__()
-        self. user = user
+        self.user = user
 
     def args(self):
         return [self.user]
 
 
-class ChatAccept(Message):
-    command = "CHAT_ACCEPT"
+class AcceptChat(Message):
+    command = "ACCEPT_CHAT"
     arg_types = (str, int)
 
     def __init__(self, user, port):
-        super(ChatAccept, self).__init__()
+        super(AcceptChat, self).__init__()
         self.user = user
         self.port = port
 
@@ -129,18 +131,19 @@ class ChatAccept(Message):
         return [self.user, self.port]
 
 
-class ChatConfirmed(Message):
-    command = "CHAT_CONFIRMED"
+class ChatAccepted(Message):
+    command = "CHAT_ACCEPTED"
     arg_types = (str, ipaddr.IPAddress, int)
 
-    def __init__(self, user, ip, port):
-        super(ChatConfirmed, self).__init__()
+    def __init__(self, user, host, port):
+        super(ChatAccepted, self).__init__()
         self.user = user
-        self.ip = ip
+        self.host = host
         self.port = port
 
     def args(self):
-        return [self.user, self.ip, self.port]
+        return [self.user, self.host, self.port]
+
 
 class SendChat(Message):
     command = "SEND_CHAT"
@@ -155,26 +158,15 @@ class SendChat(Message):
         return [self.message]
 
 
-def test():
-    d = MessageDispatcher()
-    d.add_message(Connect)
-    d.add_message(Alive)
-    d.add_message(Quit)
-    d.add_message(ListUsers)
-    d.add_message(ChatStart)
-    d.add_message(ChatAccept)
-    d.add_message(ChatRequested)
-    d.add_message(ChatConfirmed)
+class RequestFileTransfer(Message):
+    command = "REQUEST_FILE_TRANSFER"
+    arg_types = (str, int)
+    parse_args = True
 
-    def p(o):
-        import pprint
-        print o.__class__.__name__ + " " + pprint.pformat(vars(o))
+    def __init__(self, mime_type, file_size):
+        super(RequestFileTransfer, self).__init__()
+        self.mime_type = mime_type
+        self.file_size = file_size
 
-    p(d.parse_message("CONNECT"))
-    p(d.parse_message("ALIVE"))
-    p(d.parse_message("QUIT"))
-    p(d.parse_message("CHAT_START joaozinho"))
-    p(d.parse_message("CHAT_REQUESTED daniboy")) # to joaozinho
-    p(d.parse_message("CHAT_ACCEPT daniboy 2000")) # from joaozinho
-    p(d.parse_message("CHAT_CONFIRMED joaozinho 192.168.1.1 2000"))
-
+    def args(self):
+        return [self.mime_type, self.file_size]
