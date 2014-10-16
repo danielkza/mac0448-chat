@@ -64,12 +64,16 @@ class Protocol(CommonProtocol, Fysom):
                 lambda m: self.chat_client_confirm(m.user, m.port),
             RejectChat:
                 lambda m: self.chat_client_reject(m.user)
-        }:
+        }.items():
             if isinstance(message, msg_cls):
                 action(message)
                 return
 
         raise MessageError("Unhandled message {0}".format(message.command))
+
+
+    def on_after_connect(self, event):
+        self.send_response({})
 
     def on_before_login(self, event):
         user_name = event.args[0]
