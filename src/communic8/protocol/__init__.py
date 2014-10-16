@@ -6,14 +6,14 @@ from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 from fysom import FysomError
 
-from communic8.model.messages import MessageError, MessageDispatcher
+from communic8.model.messages import MessageError
 
 
 class ProtocolError(RuntimeError):
     pass
 
 
-class CommonProtocol(LineReceiver, DatagramProtocol):
+class CommonProtocol(LineReceiver):
     ERROR_MESSAGES = {
         'INVALID_COMMAND': 'Invalid or unknown command',
         'INVALID_COMMAND_FOR_STATE': 'Invalid command {command} for state {state}'
@@ -39,7 +39,7 @@ class CommonProtocol(LineReceiver, DatagramProtocol):
         self.log("Sending message {cmd}", cmd=message.command)
 
         self.transport.write(str(message))
-        self.transport.write('\n')
+        self.transport.write('\r\n')
 
         if response_callback:
             self.log("Waiting for response")
@@ -56,7 +56,7 @@ class CommonProtocol(LineReceiver, DatagramProtocol):
         data.update(state=self.current)
 
         json.dump(data, self.transport)
-        self.transport.write('\n')
+        self.transport.write('\r\n')
 
     @classmethod
     def error_type_message(cls, key):

@@ -13,7 +13,7 @@ class Fysom(fysom.Fysom):
                 return getattr(self, fnname)(e)
 
     def _leave_state(self, e):
-        fnname = 'on_leave' + e.src
+        fnname = 'on_leave_' + e.src
         if hasattr(self, fnname):
             return getattr(self, fnname)(e)
 
