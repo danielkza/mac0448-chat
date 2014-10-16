@@ -5,9 +5,7 @@ class Fysom(fysom.Fysom):
     def _before_event(self, e):
         fnname = 'on_before_' + e.event
         if hasattr(self, fnname):
-            ret = getattr(self, fnname)(e)
-            if not ret:
-                raise fysom.FysomError("State change refused")
+            return getattr(self, fnname)(e)
 
     def _after_event(self, e):
         for fnname in ['on_after_' + e.event, 'on_' + e.event]:

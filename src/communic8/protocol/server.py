@@ -1,4 +1,4 @@
-from twisted.internet import protocol
+from twisted.internet import protocol, task, reactor
 from twisted.python import log
 
 from communic8.model.user import User, UserDatabase, UserNameAlreadyUsed, \
@@ -21,11 +21,17 @@ class Protocol(CommonProtocol, Fysom):
             'initial': 'waiting_connection',
             'events': [
                 # event / from / to
-                ('connect',        'waiting_connection', 'waiting_login'),
-                ('disconnect',     '*',                  'disconnected'),
-                ('logout',         '*',                  'waiting_login'),
-                ('login',          'waiting_login',      'logged_in'),
-                ('send_user_list', 'logged_in',          'logged_in')
+                ('connect',               'waiting_connection',               'waiting_login'),
+                ('disconnect',            '*',                                'disconnected'),
+                ('logout',                '*',                                'waiting_login'),
+                ('login',                 'waiting_login',                    'logged_in'),
+                ('send_user_list',        'logged_in',                        'logged_in'),
+                ('chat_initiate',         'logged_in',                        'chat_waiting_confirmation'),
+                ('chat_ask_confirmation', 'logged_in',                        'chat_waiting_client_confirmation'),
+                ('chat_confirm',          'chat_waiting_confirmation',        'chatting'),
+                ('chat_reject',           'chat_waiting_confirmation',        'logged_in'),
+                ('chat_client_confirm',   'chat_waiting_client_confirmation', 'chatting'),
+                ('chat_client_reject',    'chat_waiting_client_confirmation', 'logged_in')
             ]
         })
 
@@ -41,16 +47,29 @@ class Protocol(CommonProtocol, Fysom):
         return self.factory.message_dispatcher
 
     def on_message_received(self, message):
-        if isinstance(message, Connect):
-            self.connect()
-        elif isinstance(message, Login):
-            self.login(message.user)
-        elif isinstance(message, Quit):
-            self.transport.loseConnection()
-        elif isinstance(message, Logout):
-            self.logout()
-        elif isinstance(message, ListUsers):
-            self.send_user_list()
+        for msg_cls, action in {
+            Connect:
+                lambda m: self.connect(),
+            Login:
+                lambda m: self.login(m.user),
+            Quit:
+                lambda m: self.transport.loseConnection(),
+            Logout:
+                lambda m: self.logout(),
+            ListUsers:
+                lambda m: self.send_user_list(),
+            RequestChat:
+                lambda m: self.chat_initiate(m.user),
+            AcceptChat:
+                lambda m: self.chat_client_confirm(m.user, m.port),
+            RejectChat:
+                lambda m: self.chat_client_reject(m.user)
+        }:
+            if isinstance(message, msg_cls):
+                action(message)
+                return
+
+        raise MessageError("Unhandled message {0}".format(message.command))
 
     def on_before_login(self, event):
         user_name = event.args[0]
@@ -68,6 +87,7 @@ class Protocol(CommonProtocol, Fysom):
         except UserDatabaseError:
             self.send_error_response('LOGIN_FAILED')
         else:
+            self.factory.set_protocol_user(self, user_name)
             return True
 
         return False
@@ -90,6 +110,7 @@ class Protocol(CommonProtocol, Fysom):
     def _logout(self):
         if self.user:
             self.user_database.remove(self.user.name)
+            self.factory.remove_protocol_user(self.user.name)
 
         self.user = None
 
@@ -106,9 +127,55 @@ class Protocol(CommonProtocol, Fysom):
     def on_send_user_list(self, event):
         users = []
         for user in self.user_database.users():
-            users.append({'name': user.name, 'connected_at': user.connected_at})
+            users.append({'name': user.name, 'connected_at': user.connected_at.isoformat()})
 
-        self.send_response(users)
+        self.send_response({"users:": users})
+
+    def on_before_chat_initiate(self, event):
+        user_name = event.args[0]
+
+        self.log("Attempted chat initiation from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
+
+        if user_name == self.user.name:
+            self.send_error_response("CANNOT_CHAT_WITH_SELF")
+        else:
+            user_proto = self.factory.get_user_protocol(user_name)
+            if not user_proto:
+                self.send_error_response("USER_NOT_LOGGED_IN", user_name=user_name)
+            elif user_proto.current != 'logged_in':
+                self.send_error_response("USER_NOT_AVAILABLE", user_name=user_name)
+            else:
+                return True
+
+        return False
+
+    def on_chat_initiate(self, event):
+        user_name = event.args[0]
+        user_proto = self.factory.get_user_protocol(user_name)
+        assert user_proto is not None
+
+        d = task.deferLater(reactor, 0, user_proto.chat_ask_confirmation, self.user.name)
+
+        def handle_error(error):
+            print str(error)
+            print error.getTraceback()
+
+        d.addErrback(handle_error)
+
+    def on_chat_ask_confirmation(self, event):
+        user_name = event.args[0]
+        self.log("Sending chat confirmation from {from_name} to {to_name}", from_name=user_name, to_name=self.user.name)
+
+        self.send_message(ChatRequested(user_name))
+
+    def on_chat_client_confirm(self, event):
+        user_name = event.args[0]
+        self.log("Received client confirmation for {user_name}", user_name=user_name)
+
+        
+
+    def on_chat_client_reject(self, event):
+        self.log("Received client rejection for {user_name}", user_name=event.args[0])
 
     def connectionMade(self):
         self.transport_connected = True
@@ -129,8 +196,18 @@ class Factory(protocol.ServerFactory):
             ListUsers,
             RequestChat, ChatRequested,
             AcceptChat, ChatAccepted,
-            SendChat
+            RejectChat, ChatRejected,
         )
+        self.user_protocols = {}
+
+    def set_protocol_user(self, user_protocol, user_name):
+        self.user_protocols[user_name] = user_protocol
+
+    def remove_protocol_user(self, user_name):
+        del self.user_protocols[user_name]
+
+    def get_user_protocol(self, user_name, default=None):
+        return self.user_protocols.get(user_name, default)
 
     def buildProtocol(self, address):
         if self.user_database.get_by_address(address.host, address.port):

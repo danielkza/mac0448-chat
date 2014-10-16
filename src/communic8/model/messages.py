@@ -34,7 +34,7 @@ class Message(object):
         return []
 
     def __str__(self):
-        return ' '.join(chain((self.command,), map(str, self.args)))
+        return ' '.join(chain((self.command,), map(str, self.args())))
 
 
 class MessageDispatcher(object):
@@ -131,6 +131,18 @@ class AcceptChat(Message):
         return [self.user, self.port]
 
 
+class RejectChat(Message):
+    command = "REJECT_CHAT"
+    arg_types = (str,)
+
+    def __init__(self, user):
+        super(RejectChat, self).__init__()
+        self.user = user
+
+    def args(self):
+        return [self.user]
+
+
 class ChatAccepted(Message):
     command = "CHAT_ACCEPTED"
     arg_types = (str, ipaddr.IPAddress, int)
@@ -143,6 +155,18 @@ class ChatAccepted(Message):
 
     def args(self):
         return [self.user, self.host, self.port]
+
+
+class ChatRejected(Message):
+    command = "CHAT_REJECTED"
+    arg_types = (str,)
+
+    def __init__(self, user):
+        super(ChatRejected, self).__init__()
+        self.user = user
+
+    def args(self):
+        return [self.user]
 
 
 class SendChat(Message):
