@@ -44,9 +44,13 @@ class CommandProcessor(Cmd):
         self.wait_call(self.protocol.logout)
 
     def do_disconnect(self, line):
+        self.protocol.disconnect()
         self.wait_call(self.protocol.disconnect)
         reactor.callFromThread(reactor.stop)
         return True
+
+    def do_list_users(self, line):
+        self.protocol.request_user_list()
 
     def do_initiate(self, line):
         self.wait_call(self.protocol.chat_initiate, line)

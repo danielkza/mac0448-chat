@@ -113,7 +113,6 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         self.send_message(Logout(), on_response)
 
     def _logout(self):
-        self.chat_channel_close()
         self.user = None
 
     def on_after_chat_initiated(self, event):
@@ -136,6 +135,16 @@ class ClientServerProtocol(CommonProtocol, Fysom):
                 self.chat_rejected()
 
         self.send_message(RequestChat(user_name), on_response)
+
+    def on_after_request_user_list(self, event):
+        def on_response(response):
+            if self.check_response_error(response):
+                self.log("Couldn't get user list")
+                self.cancel_transition()
+            elif response.get('result:') == 'ok':
+                self.log("Received user list")
+
+        self.send_message(ListUsers(), on_response)
 
     def on_after_chat_requested(self, event):
         user_name = event.args[0]

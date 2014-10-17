@@ -145,7 +145,7 @@ class Protocol(CommonProtocol, Fysom):
             users.append({'name': user.name,
                           'connected_at': user.connected_at.isoformat()})
 
-        self.send_response({"users:": users})
+        self.send_response({'result:': 'ok', 'users:': users})
 
     def on_before_chat_initiate(self, event):
         user_name = event.args[0]
