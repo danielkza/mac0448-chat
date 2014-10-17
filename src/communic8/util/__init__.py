@@ -4,10 +4,26 @@ import fysom
 class Fysom(fysom.Fysom):
     async_transitions = False
 
+    def __init__(self, *args, **kwargs):
+        fysom.Fysom.__init__(self, *args, **kwargs)
+        self._current_event = None
+
     def _before_event(self, e):
         fnname = 'on_before_' + e.event
+        ret = None
         if hasattr(self, fnname):
-            return getattr(self, fnname)(e)
+            ret = getattr(self, fnname)(e)
+
+        if ret is False:
+            if hasattr(e, 'error_callback'):
+                new_ret = e.error_callback()
+                if new_ret is not None:
+                    ret = new_ret
+
+        if ret is not False:
+            self._current_event = e
+
+        return ret
 
     def _after_event(self, e):
         ret = None
@@ -16,8 +32,10 @@ class Fysom(fysom.Fysom):
                 ret = getattr(self, fnname)(e)
                 break
 
-        if hasattr(e, 'deferred'):
-            e.deferred.callback(ret)
+        if hasattr(e, 'callback'):
+            e.callback(ret)
+
+        self._current_event = None
 
         return ret
 
@@ -37,7 +55,6 @@ class Fysom(fysom.Fysom):
         return ret
 
     def _enter_state(self, e):
-        ret = None
         for fnname in ['on_enter_' + e.dst, 'on_' + e.dst]:
             if hasattr(self, fnname):
                 return getattr(self, fnname)(e)
@@ -46,4 +63,16 @@ class Fysom(fysom.Fysom):
         fnname = 'on_change_state'
         if hasattr(self, fnname):
             return getattr(self, fnname)(e)
+
+    def cancel_transition(self):
+        if not hasattr(self, 'transition'):
+            raise RuntimeError("no transition in progress")
+
+        del self.transition
+        if self._current_event:
+            ev = self._current_event
+            if hasattr(ev, 'error_callback'):
+                ev.error_callback()
+
+        self._current_event = None
 

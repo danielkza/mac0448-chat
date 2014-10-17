@@ -17,25 +17,33 @@ class Protocol(CommonProtocol, Fysom):
 
     def __init__(self):
         CommonProtocol.__init__(self)
-        Fysom.__init__(self, {
-            'initial': 'waiting_connection',
-            'events': [
-                # event / from / to
-                ('connect',               'waiting_connection',               'waiting_login'),
-                ('disconnect',            '*',                                'disconnected'),
-                ('logout',                '*',                                'waiting_login'),
-                ('login',                 'waiting_login',                    'logged_in'),
-                ('send_user_list',        'logged_in',                        'logged_in'),
-                ('chat_initiate',         'logged_in',                        'chat_waiting_confirmation'),
-                ('chat_ask_confirmation', 'logged_in',                        'chat_waiting_client_confirmation'),
-                ('chat_confirm',          'chat_waiting_confirmation',        'chatting'),
-                ('chat_reject',           'chat_waiting_confirmation',        'logged_in'),
-                ('chat_client_confirm',   'chat_waiting_client_confirmation', 'chatting'),
-                ('chat_client_reject',    'chat_waiting_client_confirmation', 'logged_in'),
-                ('ending_chat',           'chatting',                         'logged_in'),
-                ('chat_finished',         'chatting',                         'logged_in')
-            ]
-        })
+        Fysom.__init__(self, initial='waiting_connection', events=[
+            # event / from / to
+            ('connect',
+                'waiting_connection', 'waiting_login'),
+            ('disconnect',
+                '*', 'disconnected'),
+            ('logout',
+                '*', 'waiting_login'),
+            ('login',
+                'waiting_login', 'logged_in'),
+            ('send_user_list',
+                'logged_in', 'logged_in'),
+            ('chat_initiate',
+                'logged_in', 'waiting_other_confirmation'),
+            ('chat_ask_confirmation',
+                'logged_in', 'waiting_client_confirmation'),
+            ('chat_confirm',
+                'waiting_other_confirmation', 'chatting'),
+            ('chat_reject',
+                'waiting_other_confirmation', 'logged_in'),
+            ('chat_confirmed',
+                'waiting_client_confirmation', 'chatting'),
+            ('chat_rejected',
+                'waiting_client_confirmation', 'logged_in'),
+            ('chat_finished',
+                'chatting', 'logged_in')
+        ])
 
         self.factory = None
         self.user = None
@@ -55,7 +63,7 @@ class Protocol(CommonProtocol, Fysom):
             Login:
                 lambda m: self.login(m.user),
             Quit:
-                lambda m: self.transport.loseConnection(),
+                lambda m: self.disconnect(),
             Logout:
                 lambda m: self.logout(),
             ListUsers:
@@ -67,7 +75,7 @@ class Protocol(CommonProtocol, Fysom):
             RejectChat:
                 lambda m: self.chat_client_reject(m.user),
             EndChat:
-                lambda m : self.ending_chat(m.user)
+                lambda m: self.ending_chat(m.user)
         }.items():
             if isinstance(message, msg_cls):
                 action(message)
@@ -75,8 +83,7 @@ class Protocol(CommonProtocol, Fysom):
 
         raise MessageError("Unhandled message {0}".format(message.command))
 
-
-    def on_after_connect(self, event):
+    def on_connect(self, event):
         self.send_response({})
 
     def on_before_login(self, event):
@@ -135,29 +142,33 @@ class Protocol(CommonProtocol, Fysom):
     def on_send_user_list(self, event):
         users = []
         for user in self.user_database.users():
-            users.append({'name': user.name, 'connected_at': user.connected_at.isoformat()})
+            users.append({'name': user.name,
+                          'connected_at': user.connected_at.isoformat()})
 
         self.send_response({"users:": users})
 
     def on_before_chat_initiate(self, event):
         user_name = event.args[0]
 
-        self.log("Attempted chat initiation from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
+        self.log("Attempted chat initiation from {from_name} to {to_name}",
+                 from_name=self.user.name, to_name=user_name)
 
         if user_name == self.user.name:
             self.send_error_response("CANNOT_CHAT_WITH_SELF")
         else:
             user_proto = self.factory.get_user_protocol(user_name)
             if not user_proto:
-                self.send_error_response("USER_NOT_LOGGED_IN", user_name=user_name)
+                self.send_error_response("USER_NOT_LOGGED_IN",
+                                         user_name=user_name)
             elif user_proto.current != 'logged_in':
-                self.send_error_response("USER_NOT_AVAILABLE", user_name=user_name)
+                self.send_error_response("USER_NOT_AVAILABLE",
+                                         user_name=user_name)
             else:
                 return True
 
         return False
 
-    def on_chat_initiate(self, event):
+    def on_after_chat_initiate(self, event):
         user_name = event.args[0]
         user_proto = self.factory.get_user_protocol(user_name)
         assert user_proto is not None
@@ -166,55 +177,66 @@ class Protocol(CommonProtocol, Fysom):
 
     def on_chat_ask_confirmation(self, event):
         user_name = event.args[0]
-        self.log("Sending chat confirmation from {from_name} to {to_name}", from_name=user_name, to_name=self.user.name)
+        self.log("Sending chat confirmation from {from_name} to {to_name}",
+                 from_name=user_name, to_name=self.user.name)
 
-        self.send_message(ChatRequested(user_name))
+        def on_response(response):
+            if response.get('result') == 'accepted':
+                self.log("Chat accepted by client")
+                self.chat_confirm(response['user'], response['port'])
+            else:
+                self.log("Chat rejected by client")
+                self.chat_reject(response['user'])
 
-    def on_chat_client_confirm(self, event):
-        user_name = event.args[0]
-        user_chat_port = event.args[1]
-        user_proto = self.factory.get_user_protocol(user_name)
-        assert  user_proto is not None
-        self.log("Sent client confirmation for {user_name}", user_name =user_name)
-
-        reactor.callLater(0, user_proto.chat_confirm, [self.user.name,user_chat_port])
-
-    def on_chat_client_reject(self, event):
-
-        user_name = event.args[0]
-        user_proto = self.factory.get_user_protocol(user_name)
-        assert  user_proto is not None
-
-        self.log("Sent client rejection for {user_name}", user_name = user_name)
-
-        reactor.callLater (0, user_proto.chat_reject, self.user.name)
-
+        self.send_message(ChatRequested(user_name), on_response)
 
     def on_chat_confirm(self, event):
-        user_name = event.args[0][0]
-        user_chat_port = event.args[0][1]
+        user_name = event.args[0]
+        port = event.args[1]
         user_proto = self.factory.get_user_protocol(user_name)
-        assert  user_proto is not None
+        assert user_proto is not None
 
-        self.log("Received chat confirmation from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
-        self.send_response({'result:': 'CONFIRMED',
-        })
+        self.log("Forwarding confirmation from {from_name} to {to_name}",
+                 from_name=self.user.name, to_name=user_name)
 
+        reactor.callLater(0, user_proto.chat_confirmed, self.user.name,
+                          self.transport.getPeer().address, port)
 
     def on_chat_reject(self, event):
         user_name = event.args[0]
         user_proto = self.factory.get_user_protocol(user_name)
+        assert user_proto is not None
+
+        self.log("Forwarding rejection from {from_name} to {to_name}",
+                 from_name=self.user.name, to_name=user_name)
+
+        reactor.callLater(0, user_proto.chat_rejected, self.user.name)
+
+    def on_chat_confirmed(self, event):
+        user_name, host, port = event.args[0:3]
+        user_proto = self.factory.get_user_protocol(user_name)
         assert  user_proto is not None
 
-        self.log("Received chat rejection from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
-        self.send_response({'result:': 'REJECTED'})
+        self.log("Received chat confirmation from {from_name} to {to_name}",
+                 from_name=self.user.name, to_name=user_name)
+        self.send_response({'result:': 'confirmed', 'host': host, 'port': port})
+
+    def on_chat_rejected(self, event):
+        user_name = event.args[0]
+        user_proto = self.factory.get_user_protocol(user_name)
+        assert user_proto is not None
+
+        self.log("Received chat rejection from {from_name} to {to_name}",
+                 from_name=self.user.name, to_name=user_name)
+        self.send_response({'result:': 'rejected'})
 
     def on_ending_chat(self, event):
         user_name = event.args[0]
         user_proto = self.factory.get_user_protocol(user_name)
         assert  user_proto is not None
 
-        self.log("Ending chat from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
+        self.log("Ending chat from {from_name} to {to_name}",
+                 from_name=self.user.name, to_name=user_name)
 
         reactor.callLater (0, user_proto.chat_finished, self.user.name)
 
