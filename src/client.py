@@ -1,7 +1,6 @@
 import sys
 
 from twisted.internet import reactor
-from twisted.internet.protocol import ClientFactory
 from twisted.python import log
 
 from communic8.protocol import client_server

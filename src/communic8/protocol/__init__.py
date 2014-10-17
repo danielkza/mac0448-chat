@@ -1,6 +1,7 @@
 import json
 import inspect
 
+from twisted.internet import defer, task, reactor
 from twisted.internet.protocol import connectionDone, DatagramProtocol
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
@@ -57,6 +58,15 @@ class CommonProtocol(LineReceiver):
 
         json.dump(data, self.transport)
         self.transport.write('\r\n')
+
+    def defer_event(self, time, func, *args, **kwargs):
+        d = defer.Deferred()
+        kwargs['deferred'] = d
+        reactor.callLater(time, func, args, deferred=d)
+        return d
+
+    def cancel_transition(self):
+        del self.transition
 
     @classmethod
     def error_type_message(cls, key):
