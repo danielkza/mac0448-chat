@@ -31,6 +31,8 @@ class CommandProcessor(Cmd):
 
     def do_disconnect(self, line):
         self.protocol.disconnect()
+    def do_list_users(self, line):
+        self.protocol.request_user_list()
 
 
 def wait_for_protocol(factory):
