@@ -175,9 +175,9 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         self.chat_channel_close()
 
     def on_after_chat_confirm(self, event):
-        if not self.chat_channel:
-            self.chat_reject()
-            return
+        #if not self.chat_channel:
+        #    self.chat_reject()
+        #    return
 
         self.log("Confirmed chat request for {0} on port {1}",
                  self.requesting_user, self.chat_port)

@@ -33,13 +33,13 @@ class Protocol(CommonProtocol, Fysom):
                 'logged_in', 'waiting_other_confirmation'),
             ('chat_ask_confirmation',
                 'logged_in', 'waiting_client_confirmation'),
-            ('chat_confirm',
-                'waiting_other_confirmation', 'chatting'),
-            ('chat_reject',
-                'waiting_other_confirmation', 'logged_in'),
             ('chat_confirmed',
-                'waiting_client_confirmation', 'chatting'),
+                'waiting_other_confirmation', 'chatting'),
             ('chat_rejected',
+                'waiting_other_confirmation', 'logged_in'),
+            ('chat_confirm',
+                'waiting_client_confirmation', 'chatting'),
+            ('chat_reject',
                 'waiting_client_confirmation', 'logged_in'),
             ('chat_finished',
                 'chatting', 'logged_in')
@@ -47,6 +47,7 @@ class Protocol(CommonProtocol, Fysom):
 
         self.factory = None
         self.user = None
+        self.requesting_user = None
 
     @property
     def user_database(self):
@@ -181,41 +182,44 @@ class Protocol(CommonProtocol, Fysom):
                  from_name=user_name, to_name=self.user.name)
 
         def on_response(response):
-            if response.get('result') == 'accepted':
+            if response.get('result') == 'confirmed':
                 self.log("Chat accepted by client")
-                self.chat_confirm(response['user'], response['port'])
+                self.chat_confirm(response['port'])
             else:
                 self.log("Chat rejected by client")
-                self.chat_reject(response['user'])
+                self.chat_reject()
 
+        self.requesting_user = user_name
         self.send_message(ChatRequested(user_name), on_response)
 
     def on_chat_confirm(self, event):
-        user_name = event.args[0]
-        port = event.args[1]
+        port = event.args[0]
+        user_name = self.requesting_user
         user_proto = self.factory.get_user_protocol(user_name)
         assert user_proto is not None
 
         self.log("Forwarding confirmation from {from_name} to {to_name}",
                  from_name=self.user.name, to_name=user_name)
 
+        self.requesting_user = None
         reactor.callLater(0, user_proto.chat_confirmed, self.user.name,
-                          self.transport.getPeer().address, port)
+                          self.transport.getPeer().host, port)
 
     def on_chat_reject(self, event):
-        user_name = event.args[0]
+        user_name = self.requesting_user
         user_proto = self.factory.get_user_protocol(user_name)
         assert user_proto is not None
 
         self.log("Forwarding rejection from {from_name} to {to_name}",
                  from_name=self.user.name, to_name=user_name)
 
+        self.requesting_user = None
         reactor.callLater(0, user_proto.chat_rejected, self.user.name)
 
     def on_chat_confirmed(self, event):
         user_name, host, port = event.args[0:3]
         user_proto = self.factory.get_user_protocol(user_name)
-        assert  user_proto is not None
+        assert user_proto is not None
 
         self.log("Received chat confirmation from {from_name} to {to_name}",
                  from_name=self.user.name, to_name=user_name)
