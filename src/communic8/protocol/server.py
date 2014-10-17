@@ -75,6 +75,7 @@ class Protocol(CommonProtocol, Fysom):
 
         raise MessageError("Unhandled message {0}".format(message.command))
 
+
     def on_after_connect(self, event):
         self.send_response({})
 
@@ -161,13 +162,7 @@ class Protocol(CommonProtocol, Fysom):
         user_proto = self.factory.get_user_protocol(user_name)
         assert user_proto is not None
 
-        d = task.deferLater(reactor, 0, user_proto.chat_ask_confirmation, self.user.name)
-
-        def handle_error(error):
-            print str(error)
-            print error.getTraceback()
-
-        d.addErrback(handle_error)
+        reactor.callLater(0, user_proto.chat_ask_confirmation, self.user.name)
 
     def on_chat_ask_confirmation(self, event):
         user_name = event.args[0]
@@ -179,16 +174,10 @@ class Protocol(CommonProtocol, Fysom):
         user_name = event.args[0]
         user_chat_port = event.args[1]
         user_proto = self.factory.get_user_protocol(user_name)
-        assert user_proto is not None
+        assert  user_proto is not None
         self.log("Sent client confirmation for {user_name}", user_name =user_name)
 
-        d = task.deferLater(reactor, 0, user_proto.chat_confirm, [self.user.name, user_chat_port])
-
-        def handle_error(error):
-            print str(error)
-            print error.getTraceback()
-
-        d.addErrback(handle_error)
+        reactor.callLater(0, user_proto.chat_confirm, [self.user.name,user_chat_port])
 
     def on_chat_client_reject(self, event):
 
@@ -198,13 +187,8 @@ class Protocol(CommonProtocol, Fysom):
 
         self.log("Sent client rejection for {user_name}", user_name = user_name)
 
-        d = task.deferLater(reactor, 0, user_proto.chat_reject, self.user.name)
+        reactor.callLater (0, user_proto.chat_reject, self.user.name)
 
-        def handle_error(error):
-            print str(error)
-            print error.getTraceback()
-
-        d.addErrback(handle_error)
 
     def on_chat_confirm(self, event):
         user_name = event.args[0][0]
@@ -212,28 +196,27 @@ class Protocol(CommonProtocol, Fysom):
         user_proto = self.factory.get_user_protocol(user_name)
         assert  user_proto is not None
 
-        self.log("Received chat confirmation from {from_name} to {to_name}",
-                 from_name=self.user.name, to_name=user_name)
-        self.send_message(ChatAccepted(self.user.name, self.user.host, user_chat_port))
+        self.log("Received chat confirmation from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
+        self.send_response({'result:': 'CONFIRMED',
+        })
+
 
     def on_chat_reject(self, event):
         user_name = event.args[0]
         user_proto = self.factory.get_user_protocol(user_name)
         assert  user_proto is not None
 
-        self.log("Received chat rejection from {from_name} to {to_name}",
-                 from_name=self.user.name, to_name=user_name)
-        self.send_message(ChatRejected(self.user.name))
+        self.log("Received chat rejection from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
+        self.send_response({'result:': 'REJECTED'})
 
     def on_ending_chat(self, event):
         user_name = event.args[0]
         user_proto = self.factory.get_user_protocol(user_name)
-        assert user_proto is not None
+        assert  user_proto is not None
 
-        self.log("Ending chat from {from_name} to {to_name}",
-                 from_name=self.user.name, to_name=user_name)
+        self.log("Ending chat from {from_name} to {to_name}", from_name=self.user.name, to_name=user_name)
 
-        reactor.callLater(0, user_proto.chat_finished, self.user.name)
+        reactor.callLater (0, user_proto.chat_finished, self.user.name)
 
     def connectionMade(self):
         self.transport_connected = True
