@@ -62,7 +62,7 @@ class CommonProtocol(LineReceiver):
     def defer_event(self, time, func, *args, **kwargs):
         d = defer.Deferred()
         kwargs['deferred'] = d
-        reactor.callLater(time, func, args, deferred=d)
+        reactor.callLater(time, func, *args, deferred=d)
         return d
 
     def cancel_transition(self):
