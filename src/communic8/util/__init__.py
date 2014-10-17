@@ -14,9 +14,12 @@ class Fysom(fysom.Fysom):
         for fnname in ['on_after_' + e.event, 'on_' + e.event]:
             if hasattr(self, fnname):
                 ret = getattr(self, fnname)(e)
+                break
 
         if hasattr(e, 'deferred'):
             e.deferred.callback(ret)
+
+        return ret
 
     def _leave_state(self, e):
         fnname = 'on_leave_' + e.src

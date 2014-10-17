@@ -1,10 +1,9 @@
 import sys
-import readline
 
 from cmd import Cmd
 import time
 
-from twisted.internet import reactor, threads
+from twisted.internet import reactor, threads, defer
 from twisted.python import log
 
 from communic8.protocol import client_server
@@ -13,33 +12,53 @@ from communic8.protocol import client_server
 class CommandProcessor(Cmd):
     prompt = '>> '
 
+    def wait_call(self, f, *args, **kwargs):
+        d = defer.Deferred()
+        kwargs['deferred'] = d
+
+        reactor.callFromThread(f, *args, **kwargs)
+        while not d.called:
+            time.sleep(0.1)
+
     def __init__(self, protocol):
         Cmd.__init__(self)
         self.protocol = protocol
 
     def do_EOF(self, line):
-        return True
+        return self.do_disconnect(line)
 
     def do_connect(self, line):
-        self.protocol.connect()
+        self.wait_call(self.protocol.connect)
 
     def do_login(self, line):
-        self.protocol.login(line)
+        self.wait_call(self.protocol.login, line)
 
     def do_logout(self, line):
-        self.protocol.logout()
+        self.wait_call(self.protocol.logout)
 
     def do_disconnect(self, line):
         self.protocol.disconnect()
+        self.wait_call(self.protocol.disconnect)
+        reactor.callFromThread(reactor.stop)
+        return True
+
     def do_list_users(self, line):
         self.protocol.request_user_list()
 
+    def do_initiate(self, line):
+        self.wait_call(self.protocol.chat_initiate, line)
 
-def wait_for_protocol(factory):
-    while len(factory.instances) == 0:
-        time.sleep(1)
+    def do_confirm(self, line):
+        self.wait_call(self.protocol.chat_confirm, line)
 
-    return True
+    def do_reject(self, line):
+        self.wait_call(self.protocol.chat_reject, line)
+
+    def do_quit(self, line):
+        return self.do_disconnect(line)
+
+    def emptyline(self):
+        pass
 
 
 def main():
@@ -48,7 +67,13 @@ def main():
     client_factory = client_server.ClientServerFactory()
     reactor.connectTCP('127.0.0.1', 8125, client_factory)
 
-    d = threads.deferToThread(wait_for_protocol, client_factory)
+    def wait_for_protocol():
+        while len(client_factory.instances) == 0:
+            time.sleep(1)
+
+        return True
+
+    d = threads.deferToThread(wait_for_protocol)
 
     def run_loop(_):
         proc = CommandProcessor(client_factory.instances[0])
