@@ -143,7 +143,7 @@ class ClientServerProtocol(CommonProtocol, Fysom):
             elif response.get('result:') == 'ok':
                 self.log("Received user list")
                 for item in response.get('users:'):
-                    print(item['name'])
+                    print('Name: ' + item['name'] + ' Connected at: ' + item['connected_at'])
 
         self.send_message(ListUsers(), on_response)
 
