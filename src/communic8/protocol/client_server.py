@@ -32,29 +32,29 @@ class ClientServerProtocol(CommonProtocol, Fysom):
                 ('request_user_list',
                     'logged_in', 'logged_in'),
                 ('chat_initiate',
-                    'logged_in', 'chat_waiting_confirmation'),
-                ('chat_confirm',
-                    'chat_waiting_confirmation', 'chat_waiting_connection'),
-                ('chat_reject',
-                    ['chat_waiting_connection', 'chat_waiting_confirmation'],
-                    'logged_in'),
-                ('chat_start',
-                    'chat_waiting_connection',
-                    'chatting'),
-                ('chat_timeout',
-                    'chat_waiting_connection', 'logged_in'),
-                ('chat_ended',
-                    'chatting', 'logged_in'),
+                    'logged_in', 'waiting_server_confirmation'),
+                ('chat_accepted',
+                    'waiting_server_confirmation', 'starting_connection'),
+                ('chat_rejected',
+                    'waiting_server_confirmation', 'logged_in'),
+                ('chat_connect',
+                    'starting_connection', 'chatting'),
                 ('chat_requested',
                     'logged_in', 'waiting_user_confirmation'),
-                ('chat_accepted',
-                    'waiting_user_confirmation', 'waiting_chat_connection'),
-                ('chat_denied',
-                    'waiting_user_confirmation', 'logged_in')
+                ('chat_confirm',
+                    'waiting_user_confirmation', 'waiting_connection'),
+                ('chat_reject',
+                    ['waiting_user_confirmation', 'waiting_connection'],
+                    'logged_in'),
+                ('chat_wait_timeout',
+                    'waiting_connection', 'logged_in'),
+                ('chat_connected',
+                    'waiting_connection', 'chatting'),
+                ('chat_ended',
+                    'chatting', 'logged_in'),
             ]
         })
 
-        self.user_num = 0
         self.user = None
         self.factory = None
         self.requesting_user = None
@@ -116,7 +116,7 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         self.send_message(Logout(), on_response)
 
     def _logout(self):
-        self.close_chat_channel()
+        self.chat_channel_close()
         self.user = None
 
     def on_after_chat_initiated(self, event):
@@ -153,13 +153,13 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         # TODO: actually do it
         pass
 
-    def on_enter_chat_waiting_connection(self, event):
+    def on_enter_waiting_connection(self, event):
         try:
             self.chat_channel()
         except Exception:
             self.log("Failed to open chat channel")
 
-    def on_leave_chat_waiting_connection(self, event):
+    def on_leave_waiting_connection(self, event):
         self.chat_channel_close()
 
     def on_leave_chatting(self, event):
@@ -186,18 +186,6 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         self._logout()
         self.transport.loseConnection()
 
-    @defer.inlineCallbacks
-    def test(self):
-        yield self.defer_event(0, self.connect)
-        print self.current
-
-        yield self.defer_event(0, self.login, str(self.user_num))
-        print self.current
-
-        if self.user_num % 2 == 0:
-            yield self.defer_event(10, self.chat_initiate, str(self.user_num-1))
-            print self.current
-
     def connectionMade(self):
         pass #self.test()
 
@@ -210,13 +198,9 @@ class ClientServerFactory(protocol.ClientFactory):
             ChatRequested
         )
         self.instances = []
-        self.count = 1
 
     def buildProtocol(self, addr):
         proto = protocol.ClientFactory.buildProtocol(self, addr)
-        proto.user_num = self.count
-        self.count += 1
-
         self.instances.append(proto)
         return proto
 
