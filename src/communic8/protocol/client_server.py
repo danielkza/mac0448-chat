@@ -12,8 +12,7 @@ class ChatChannelError(RuntimeError):
 
 
 class ClientServerProtocol(CommonProtocol, Fysom):
-    async_transitions = {'connect', 'login', 'logout', 'request_user_list',
-                         'chat_initiate'}
+    async_transitions = {'connect', 'login', 'logout', 'request_user_list'}
 
     def __init__(self):
         CommonProtocol.__init__(self)
@@ -97,7 +96,7 @@ class ClientServerProtocol(CommonProtocol, Fysom):
 
         self.send_message(Login(event.args[0]), on_response)
 
-    def on_enter_logged_in(self, event):
+    def on_after_login(self, event):
         self.log('Logged in as {0}', event.args[0])
 
     def on_before_logout(self, event):
@@ -115,7 +114,7 @@ class ClientServerProtocol(CommonProtocol, Fysom):
     def _logout(self):
         self.user = None
 
-    def on_after_chat_initiated(self, event):
+    def on_after_chat_initiate(self, event):
         user_name = event.args[0]
 
         def on_response(response):
