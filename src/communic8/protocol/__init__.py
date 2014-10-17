@@ -5,7 +5,7 @@ from twisted.internet import defer, task, reactor
 from twisted.internet.protocol import connectionDone, DatagramProtocol
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
-from fysom import FysomError
+from fysom import FysomError, Canceled
 
 from communic8.model.messages import MessageError
 
@@ -37,7 +37,8 @@ class CommonProtocol(LineReceiver):
             raise ProtocolError(
                 "Cannot send message while waiting for response")
 
-        self.log("Sending message {cmd}", cmd=message.command)
+        self.log("Sending message '{msg}'", msg=message)
+        #self.log("Sending message {cmd}", cmd=message.command)
 
         self.transport.write(str(message))
         self.transport.write('\r\n')
@@ -51,22 +52,13 @@ class CommonProtocol(LineReceiver):
             raise ProtocolError(
                 "Cannot send response while waiting for response")
 
-        self.log("Sending response")
-
         data = dict(data)
         data.update(state=self.current)
 
+        self.log("Sending response {data}", data=json.dumps(data))
+
         json.dump(data, self.transport)
         self.transport.write('\r\n')
-
-    def defer_event(self, time, func, *args, **kwargs):
-        d = defer.Deferred()
-        kwargs['deferred'] = d
-        reactor.callLater(time, func, *args, deferred=d)
-        return d
-
-    def cancel_transition(self):
-        del self.transition
 
     @classmethod
     def error_type_message(cls, key):
@@ -112,6 +104,7 @@ class CommonProtocol(LineReceiver):
         self.log("Transport disconnected")
 
     def lineReceived(self, line):
+        print 'received "{0}"'.format(line)
         if self.wait_response_callback:
             self.log("Received response")
 
@@ -130,6 +123,10 @@ class CommonProtocol(LineReceiver):
 
             try:
                 self.on_message_received(message)
+            except Canceled:
+                # The pre-transition handlers is responsible for returning an
+                # error response if it cancels the transition
+                pass
             except FysomError:
                 self.send_error_response('INVALID_COMMAND_FOR_STATE', None,
                                          command=message.command,

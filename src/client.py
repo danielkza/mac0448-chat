@@ -14,7 +14,14 @@ class CommandProcessor(Cmd):
 
     def wait_call(self, f, *args, **kwargs):
         d = defer.Deferred()
-        kwargs['deferred'] = d
+        kwargs['callback'] = lambda result: d.callback(result)
+        kwargs['error_callback'] = lambda: d.errback(Exception())
+
+        def handle_error(failure):
+            failure.trap(Exception)
+            print 'Command failed'
+
+        d.addErrback(handle_error)
 
         reactor.callFromThread(f, *args, **kwargs)
         while not d.called:
