@@ -81,6 +81,9 @@ class CommonProtocol(LineReceiver):
 
         return self.send_response({'error': key, 'message': message})
 
+    def check_response_error(self, response):
+        return 'error' in response
+
     def on_message_received(self, message):
         pass
 
@@ -103,8 +106,9 @@ class CommonProtocol(LineReceiver):
             self.log("Received response")
 
             response = json.loads(line)
-            self.wait_response_callback(response)
+            callback = self.wait_response_callback
             self.wait_response_callback = None
+            callback(response)
         else:
             try:
                 message = self.message_dispatcher.parse(line)
