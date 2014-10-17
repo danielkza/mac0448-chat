@@ -181,6 +181,16 @@ class SendChat(Message):
     def args(self):
         return [self.message]
 
+class EndChat(Message):
+    command = "END_CHAT"
+    arg_types = (str,)
+
+    def __init__(self, user):
+        super(EndChat, self).__init__()
+        self.user = user
+
+    def args(self):
+        return [self.user]
 
 class RequestFileTransfer(Message):
     command = "REQUEST_FILE_TRANSFER"
