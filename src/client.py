@@ -1,5 +1,5 @@
-import os
 import sys
+import readline
 
 from cmd import Cmd
 import time
@@ -11,7 +11,7 @@ from communic8.protocol import client_server
 
 
 class CommandProcessor(Cmd):
-    prompt = '>>'
+    prompt = '>> '
 
     def __init__(self, protocol):
         Cmd.__init__(self)
@@ -41,7 +41,7 @@ def wait_for_protocol(factory):
 
 
 def main():
-    log.startLogging(sys.stderr)
+    log.startLogging(sys.stderr, setStdout=False)
 
     client_factory = client_server.ClientServerFactory()
     reactor.connectTCP('127.0.0.1', 8125, client_factory)
