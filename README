@@ -1,0 +1,18 @@
+Este EP foi feito utilizando a linguagem Python
+Como bibliotecas Python complementares, foram usadas a Twisted, para controle das conexões e a Fysom, para controle das máquinas de estados do programa.
+Para instalálos basta digitar no terminal:
+pip install twisted
+pip install fysom
+
+Tendo esses pacotes instalados, basta ir na pasta src do EP e digitar: "python server.py" para subir um servidor e "python client.py" para iniciar um cliente.
+
+Com o programa em execução, os seguintes comandos estão disponíveis:
+- login "user": logar no sistema com usuário "user"
+- list_users: para receber uma lista de usuários atualmente conectados.
+- initiate "user": Envia um pedido de conversa para o usuário "user"
+- confirm: ao receber um pedido de conversa, o usuário pode digitar esse comando para aceitá-lo.
+- reject: ao receber um pedido de conversa, o usuário pode digitar esse comando para negá-lo.
+- send_chat "text": Envia "text" pelo canal de chat(Só funciona depois de estabelecida uma conexão com um outro cliente)
+- logout: Desloga do sistema mas não encerra o programa usuário.
+- quit: desloga do sistema e encerra o programa usuário
+
