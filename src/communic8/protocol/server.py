@@ -262,8 +262,6 @@ class Factory(protocol.ServerFactory):
             Login, Logout,
             ListUsers,
             RequestChat, ChatRequested,
-            AcceptChat, ChatAccepted,
-            RejectChat, ChatRejected,
             EndChat,
         )
         self.user_protocols = {}

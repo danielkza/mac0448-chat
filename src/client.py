@@ -71,7 +71,7 @@ class CommandProcessor(Cmd):
 def main():
     log.startLogging(sys.stderr, setStdout=False)
 
-    client_factory = client_server.ClientServerFactory()
+    client_factory = client_server.Factory()
     reactor.connectTCP('127.0.0.1', 8125, client_factory)
 
     def wait_for_protocol():

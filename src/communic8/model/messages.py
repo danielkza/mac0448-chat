@@ -1,6 +1,5 @@
-import ipaddr
 from itertools import chain
-
+from datetime import datetime
 
 class MessageError(RuntimeError):
     pass
@@ -81,7 +80,7 @@ class Login(Message):
         self.user = user
 
     def args(self):
-        return [self.user]
+        return self.user,
 
 
 class Logout(Message):
@@ -103,7 +102,7 @@ class RequestChat(Message):
         self.user = user
 
     def args(self):
-        return [self.user]
+        return self.user,
 
 
 class ChatRequested(Message):
@@ -115,58 +114,7 @@ class ChatRequested(Message):
         self.user = user
 
     def args(self):
-        return [self.user]
-
-
-class AcceptChat(Message):
-    command = "ACCEPT_CHAT"
-    arg_types = (str, int)
-
-    def __init__(self, user, port):
-        super(AcceptChat, self).__init__()
-        self.user = user
-        self.port = port
-
-    def args(self):
-        return [self.user, self.port]
-
-
-class RejectChat(Message):
-    command = "REJECT_CHAT"
-    arg_types = (str,)
-
-    def __init__(self, user):
-        super(RejectChat, self).__init__()
-        self.user = user
-
-    def args(self):
-        return [self.user]
-
-
-class ChatAccepted(Message):
-    command = "CHAT_ACCEPTED"
-    arg_types = (str, ipaddr.IPAddress, int)
-
-    def __init__(self, user, host, port):
-        super(ChatAccepted, self).__init__()
-        self.user = user
-        self.host = host
-        self.port = port
-
-    def args(self):
-        return [self.user, self.host, self.port]
-
-
-class ChatRejected(Message):
-    command = "CHAT_REJECTED"
-    arg_types = (str,)
-
-    def __init__(self, user):
-        super(ChatRejected, self).__init__()
-        self.user = user
-
-    def args(self):
-        return [self.user]
+        return self.user,
 
 
 class SendChat(Message):
@@ -179,7 +127,7 @@ class SendChat(Message):
         self. message = message
 
     def args(self):
-        return [self.message]
+        return self.message,
 
 
 class EndChat(Message):
@@ -191,18 +139,20 @@ class EndChat(Message):
         self.user = user
 
     def args(self):
-        return [self.user]
+        return self.user,
 
 
 class RequestFileTransfer(Message):
     command = "REQUEST_FILE_TRANSFER"
-    arg_types = (str, int)
+    arg_types = (str, str, long, long)
     parse_args = True
 
-    def __init__(self, mime_type, file_size):
+    def __init__(self, name, mime_type, mtime, size):
         super(RequestFileTransfer, self).__init__()
+        self.name = name
         self.mime_type = mime_type
-        self.file_size = file_size
+        self.mtime = datetime.utcfromtimestamp(mtime)
+        self.size = size
 
     def args(self):
-        return [self.mime_type, self.file_size]
+        return self.name, self.mime_type, self.mtime, self.size

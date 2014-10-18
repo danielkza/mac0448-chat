@@ -7,11 +7,7 @@ from communic8.protocol import CommonProtocol
 from communic8.util import Fysom
 
 
-class ChatChannelError(RuntimeError):
-    pass
-
-
-class ClientServerProtocol(CommonProtocol, Fysom):
+class Protocol(CommonProtocol, Fysom):
     async_transitions = {'connect', 'login', 'logout', 'request_user_list'}
 
     def __init__(self):
@@ -140,10 +136,11 @@ class ClientServerProtocol(CommonProtocol, Fysom):
             if self.check_response_error(response):
                 self.log("Couldn't get user list")
                 self.cancel_transition()
-            elif response.get('result:') == 'ok':
+            else:
                 self.log("Received user list")
-                for item in response.get('users:'):
-                    print('Name: ' + item['name'] + ' Connected at: ' + item['connected_at'])
+                for item in response.get('users', []):
+                    print ('Name: {item.name}, '
+                           'Connected at: {item.connected_at}').format(item)
 
         self.send_message(ListUsers(), on_response)
 
@@ -153,15 +150,13 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         self.log("Received chat request from {0}, waiting for confirmation",
                  user_name)
 
-        # TODO: wait for confirmation
-        # self.chat_confirm()
-
     def chat_channel_open(self):
         # TODO: actually do it
-        return 55555
+        self.chat_port = 55555
 
     def chat_channel_close(self):
         # TODO: actually do it
+        self.chat_port = None
         pass
 
     def on_enter_waiting_connection(self, event):
@@ -201,8 +196,8 @@ class ClientServerProtocol(CommonProtocol, Fysom):
         self.connect()
 
 
-class ClientServerFactory(protocol.ClientFactory):
-    protocol = ClientServerProtocol
+class Factory(protocol.ClientFactory):
+    protocol = Protocol
 
     def __init__(self):
         self.message_dispatcher = MessageDispatcher().register(
@@ -214,5 +209,3 @@ class ClientServerFactory(protocol.ClientFactory):
         proto = protocol.ClientFactory.buildProtocol(self, addr)
         self.instances.append(proto)
         return proto
-
-

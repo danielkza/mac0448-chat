@@ -32,6 +32,9 @@ class CommonProtocol(LineReceiver):
         prefix = "{a.type}:{a.port} - ".format(a=self.transport.getPeer())
         log.msg(prefix + fmt.format(*args, **kwargs))
 
+    def is_transport_udp(self):
+        return self.transport.getHost().type == 'UDP'
+
     def send_message(self, message, response_callback=None):
         if self.wait_response_callback is not None:
             raise ProtocolError(
