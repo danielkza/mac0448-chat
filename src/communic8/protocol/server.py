@@ -71,10 +71,6 @@ class Protocol(CommonProtocol, Fysom):
                 lambda m: self.send_user_list(),
             RequestChat:
                 lambda m: self.chat_initiate(m.user),
-            AcceptChat:
-                lambda m: self.chat_client_confirm(m.user, m.port),
-            RejectChat:
-                lambda m: self.chat_client_reject(m.user),
             EndChat:
                 lambda m: self.ending_chat(m.user)
         }.items():
