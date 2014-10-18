@@ -66,7 +66,7 @@ class Fysom(fysom.Fysom):
 
     def cancel_transition(self):
         if not hasattr(self, 'transition'):
-            raise RuntimeError("no transition in progress")
+            return
 
         del self.transition
         if self._current_event:

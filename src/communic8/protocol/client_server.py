@@ -1,5 +1,6 @@
 from twisted.internet import defer, reactor, task
 from twisted.internet import protocol
+from twisted.internet.protocol import connectionDone
 
 from communic8.model.user import User
 from communic8.model.messages import *
@@ -9,6 +10,7 @@ from communic8.util import Fysom
 
 class Protocol(CommonProtocol, Fysom):
     async_transitions = {'connect', 'login', 'logout', 'request_user_list'}
+    message_dispatcher = MessageDispatcher().register(ChatRequested)
 
     def __init__(self):
         CommonProtocol.__init__(self)
@@ -77,7 +79,8 @@ class Protocol(CommonProtocol, Fysom):
                 self.log("Connect OK")
                 self.transition()
 
-        self.send_message(Connect(), on_response)
+        self.send_message(Connect(), on_response).addErrback(
+            lambda _: self.cancel_transition())
 
     def on_before_login(self, event):
         def on_response(response):
@@ -90,22 +93,35 @@ class Protocol(CommonProtocol, Fysom):
                                  user['connected_at'])
                 self.transition()
 
-        self.send_message(Login(event.args[0]), on_response)
+        self.send_message(Login(event.args[0]), on_response).addErrback(
+            lambda _: self.cancel_transition())
 
     def on_after_login(self, event):
         self.log('Logged in as {0}', event.args[0])
 
-    def on_before_logout(self, event):
+    def _send_logout(self, callback=None):
         def on_response(response):
             if self.check_response_error(response):
                 self.log("Logout failed")
-                self.cancel_transition()
             else:
                 self.log("Logout")
                 self._logout()
+
+        d = self.send_message(Logout(), on_response)
+        if callback:
+            d.addCallback(callback)
+
+        return d
+
+    def on_before_logout(self, event):
+        def on_response(response):
+            if self.check_response_error(response):
+                self.cancel_transition()
+            else:
                 self.transition()
 
-        self.send_message(Logout(), on_response)
+        self._send_logout(on_response).addErrback(
+            lambda _: self.cancel_transition())
 
     def _logout(self):
         self.user = None
@@ -129,7 +145,9 @@ class Protocol(CommonProtocol, Fysom):
                 self.log("Initiation rejected")
                 self.chat_rejected()
 
-        self.send_message(RequestChat(user_name), on_response)
+        self.send_message(RequestChat(user_name), on_response).addErrback(
+            self.chat_rejected
+        )
 
     def on_after_request_user_list(self, event):
         def on_response(response):
@@ -142,7 +160,8 @@ class Protocol(CommonProtocol, Fysom):
                     print ('Name: {item.name}, '
                            'Connected at: {item.connected_at}').format(item)
 
-        self.send_message(ListUsers(), on_response)
+        self.send_message(ListUsers(), on_response).addErrback(
+            lambda _: self.cancel_transition())
 
     def on_after_chat_requested(self, event):
         user_name = event.args[0]
@@ -189,23 +208,21 @@ class Protocol(CommonProtocol, Fysom):
         self.send_response({'result': 'rejected'})
 
     def on_enter_done(self, event):
-        self._logout()
-        self.transport.loseConnection()
+        if not self.transport_connected:
+            return
+
+        def send_quit():
+            return self.send_message(Quit()).addBoth(
+                self.transport.loseConnection)
+
+        if self.user:
+            self._send_logout().addBoth(send_quit)
+        else:
+            send_quit()
 
     def connectionMade(self):
         self.connect()
 
-
-class Factory(protocol.ClientFactory):
-    protocol = Protocol
-
-    def __init__(self):
-        self.message_dispatcher = MessageDispatcher().register(
-            ChatRequested
-        )
-        self.instances = []
-
-    def buildProtocol(self, addr):
-        proto = protocol.ClientFactory.buildProtocol(self, addr)
-        self.instances.append(proto)
-        return proto
+    def connectionLost(self, reason=connectionDone):
+        self.cancel_transition()
+        self.disconnect()

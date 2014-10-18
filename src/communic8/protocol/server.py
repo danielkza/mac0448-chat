@@ -22,7 +22,7 @@ class Protocol(CommonProtocol, Fysom):
             ('connect',
                 'waiting_connection', 'waiting_login'),
             ('disconnect',
-                '*', 'disconnected'),
+                '*', 'done'),
             ('logout',
                 '*', 'waiting_login'),
             ('login',
@@ -71,10 +71,6 @@ class Protocol(CommonProtocol, Fysom):
                 lambda m: self.send_user_list(),
             RequestChat:
                 lambda m: self.chat_initiate(m.user),
-            AcceptChat:
-                lambda m: self.chat_client_confirm(m.user, m.port),
-            RejectChat:
-                lambda m: self.chat_client_reject(m.user),
             EndChat:
                 lambda m: self.ending_chat(m.user)
         }.items():
@@ -134,11 +130,11 @@ class Protocol(CommonProtocol, Fysom):
         self._logout()
         self.send_response({})
 
-    def on_enter_disconnected(self, event):
+    def on_enter_done(self, event):
+        self._logout()
+
         if self.transport_connected:
             self.transport.loseConnection()
-
-        self._logout()
 
     def on_send_user_list(self, event):
         users = []
@@ -249,6 +245,7 @@ class Protocol(CommonProtocol, Fysom):
 
     def connectionLost(self, reason=protocol.connectionDone):
         self.transport_connected = False
+        self.cancel_transition()
         self.disconnect()
 
 

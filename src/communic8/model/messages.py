@@ -1,5 +1,7 @@
 from itertools import chain
+import time
 from datetime import datetime
+
 
 class MessageError(RuntimeError):
     pass
@@ -20,14 +22,13 @@ class Message(object):
 
         args = s.split(" ") if s else []
         if len(args) != len(cls.arg_types):
-            raise MessageError("Invalid number or arguments for message")
+            raise MessageError("Invalid number of arguments for message")
 
         try:
-            map(lambda (arg, type_): type_(arg), zip(args, cls.arg_types))
+            args_with_types = zip(args, cls.arg_types)
+            return map(lambda (arg, type_): type_(arg), args_with_types)
         except ValueError:
             raise MessageError("Failed to parse argument")
-
-        return args
 
     def args(self):
         return []
@@ -144,15 +145,25 @@ class EndChat(Message):
 
 class RequestFileTransfer(Message):
     command = "REQUEST_FILE_TRANSFER"
-    arg_types = (str, str, long, long)
+    arg_types = (str, str, long, long, int)
     parse_args = True
 
-    def __init__(self, name, mime_type, mtime, size):
+    def __init__(self, name, mime_type, mtime, size, block_size):
         super(RequestFileTransfer, self).__init__()
         self.name = name
         self.mime_type = mime_type
-        self.mtime = datetime.utcfromtimestamp(mtime)
+
+        if isinstance(mtime, datetime):
+            self.mtime = mtime
+        else:
+            self.mtime = datetime.utcfromtimestamp(mtime)
+
         self.size = size
+        self.block_size = block_size
+
+    def mtime_timestamp(self):
+        return long(time.mktime(self.mtime.timetuple()))
 
     def args(self):
-        return self.name, self.mime_type, self.mtime, self.size
+        return (self.name, self.mime_type, self.mtime_timestamp(), self.size,
+                self.block_size)
