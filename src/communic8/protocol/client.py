@@ -178,7 +178,7 @@ class Protocol(CommonProtocol, Fysom):
         assert self.file_consumer is not None
         self.file_consumer.write(data)
 
-    def on_before_connect(self, event):
+    def on_before_connect(self, _):
         def on_response(response):
             if self.check_response_error(response):
                 self.log("Connection rejected")
@@ -190,7 +190,7 @@ class Protocol(CommonProtocol, Fysom):
 
         self.send_message(Connect(), on_response)
 
-    def on_accept_connection(self, event):
+    def on_accept_connection(self, _):
         self.log("Accepting incoming connection")
         self.send_response({})
 
@@ -240,7 +240,7 @@ class Protocol(CommonProtocol, Fysom):
         self.send_message(transfer.to_message(), on_response).addErrback(
             lambda _: self.cancel_transition())
 
-    def on_enter_sending_file(self, event):
+    def on_enter_sending_file(self, _):
         assert self.transfer_file is not None
         assert self.file_producer is not None
 
@@ -258,7 +258,7 @@ class Protocol(CommonProtocol, Fysom):
 
         d.addCallbacks(on_success, on_failure)
 
-    def on_leave_sending_file(self, event):
+    def on_leave_sending_file(self, _):
         self.transfer_file = None
         self.file_producer.stopProducing()
         self.file_producer = None
@@ -288,9 +288,9 @@ class Protocol(CommonProtocol, Fysom):
         path = os.path.join(self.receive_path, transfer.name)
 
         def generate_unique_path(initial_path):
-            path, ext = os.path.splitext(initial_path)
+            filename, ext = os.path.splitext(initial_path)
             for n in itertools.count():
-                yield "{0}-{1}{2}".format(path, n, ext)
+                yield "{0}-{1}{2}".format(filename, n, ext)
 
         if os.path.exists(path):
             for path in generate_unique_path(path):
@@ -306,7 +306,7 @@ class Protocol(CommonProtocol, Fysom):
         self.log("Receiving file as {path}", path=path)
         self.send_response({'result': 'confirmed'})
 
-    def on_enter_receiving_file(self, event):
+    def on_enter_receiving_file(self, _):
         assert self.transfer_file is not None
         assert self.file_consumer is not None
 
@@ -324,7 +324,7 @@ class Protocol(CommonProtocol, Fysom):
 
         d.addCallbacks(on_success, on_failure)
 
-    def on_leave_receiving_file(self, event):
+    def on_leave_receiving_file(self, _):
         self.transfer_file = None
         self.file_consumer.finish()
         self.file_consumer = None
@@ -339,7 +339,7 @@ class Protocol(CommonProtocol, Fysom):
         self.cancel_transition()
         self.disconnect()
 
-    def on_enter_done(self, event):
+    def on_enter_done(self, _):
         if self.current == 'receiving_file':
             self.receive_file_failure()
         elif self.current == 'sending_file':

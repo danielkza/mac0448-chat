@@ -64,9 +64,6 @@ class CommandProcessor(Cmd):
     def do_quit(self, line):
         return self.do_disconnect(line)
 
-    def do_send_chat(self, line):
-        return self.protocol.send_msg(line)
-
     def emptyline(self):
         pass
 

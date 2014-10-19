@@ -75,7 +75,7 @@ class Protocol(CommonProtocol, Fysom):
 
         #raise MessageError("Unhandled message {0}".format(message.command))
 
-    def on_before_connect(self, event):
+    def on_before_connect(self, _):
         def on_response(response):
             if self.check_response_error(response):
                 self.log("Connect failed")
@@ -118,7 +118,7 @@ class Protocol(CommonProtocol, Fysom):
 
         return d
 
-    def on_before_logout(self, event):
+    def on_before_logout(self, _):
         def on_response(response):
             if self.check_response_error(response):
                 self.cancel_transition()
@@ -154,7 +154,6 @@ class Protocol(CommonProtocol, Fysom):
             self.chat_rejected
         )
 
-
     def on_chat_confirmed(self, event):
 
         time.sleep(1)
@@ -164,11 +163,7 @@ class Protocol(CommonProtocol, Fysom):
         self.f = simpleclient.EchoFactory()
         reactor.connectTCP(host, port, self.f)
 
-    def send_msg(self, line):
-        self.f.writeMsg(line)
-
-
-    def on_after_request_user_list(self, event):
+    def on_after_request_user_list(self, _):
         def on_response(response):
             if self.check_response_error(response):
                 self.log("Couldn't get user list")
@@ -203,19 +198,19 @@ class Protocol(CommonProtocol, Fysom):
         self.chat_port = None
         pass
 
-    def on_enter_waiting_connection(self, event):
+    def on_enter_waiting_connection(self, _):
         try:
             self.chat_channel_open()
         except Exception:
             self.log("Failed to open chat channel")
 
-    def on_leave_waiting_connection(self, event):
+    def on_leave_waiting_connection(self, _):
         self.chat_channel_close()
 
-    def on_leave_chatting(self, event):
+    def on_leave_chatting(self, _):
         self.chat_channel_close()
 
-    def on_after_chat_confirm(self, event):
+    def on_after_chat_confirm(self, _):
         #if not self.chat_channel:
         #    self.chat_reject()
         #    return
@@ -227,13 +222,13 @@ class Protocol(CommonProtocol, Fysom):
         self.send_response({'result': 'confirmed', 'port': self.chat_port})
         self.start_chat(self.chat_port)
 
-    def on_after_chat_reject(self, event):
+    def on_after_chat_reject(self, _):
         self.log("Rejecting chat request for {0}", self.requesting_user)
         self.requesting_user = None
 
         self.send_response({'result': 'rejected'})
 
-    def on_enter_done(self, event):
+    def on_enter_done(self, _):
         if not self.transport_connected:
             return
 
