@@ -206,7 +206,7 @@ class Protocol(CommonProtocol, Fysom):
         self.send_message(SendChat(message), on_response)
 
     def on_receive_chat(self, event):
-        self.log("Received chat message: '{message}'", event.args[0])
+        self.log("Received chat message: '{message}'", message = event.args[0])
 
         self.send_response({})
 
