@@ -247,3 +247,20 @@ class Protocol(CommonProtocol, Fysom):
     def connectionLost(self, reason=connectionDone):
         self.cancel_transition()
         self.disconnect()
+
+
+class Factory (protocol.ClientFactory):
+    protocol = Protocol
+
+
+    def __init__(self):
+        self.message_dispatcher = MessageDispatcher().register(
+         ChatRequested
+        )
+
+        self.instances = []
+
+    def buildProtocol(self, addr):
+        proto = protocol.ClientFactory.buildProtocol(self, addr)
+        self.instances.append(proto)
+        return proto
