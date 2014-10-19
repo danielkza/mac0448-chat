@@ -1,4 +1,6 @@
-from twisted.internet import defer, reactor, task
+import time
+
+from twisted.internet import reactor
 from twisted.internet import protocol
 from twisted.internet.protocol import connectionDone
 
@@ -6,6 +8,8 @@ from communic8.model.user import User
 from communic8.model.messages import *
 from communic8.protocol import CommonProtocol
 from communic8.util import Fysom
+from communic8.protocol import simpleserv
+from communic8.protocol import simpleclient
 
 
 class Protocol(CommonProtocol, Fysom):
@@ -54,6 +58,7 @@ class Protocol(CommonProtocol, Fysom):
         self.requesting_user = None
         self.chat_channel = None
         self.chat_port = None
+        self.f = None
 
     @property
     def message_dispatcher(self):
@@ -133,7 +138,7 @@ class Protocol(CommonProtocol, Fysom):
             if self.check_response_error(response):
                 self.log("Error requesting initiation: {0}", response['error'])
                 self.chat_reject()
-            elif response.get('result') == 'accepted':
+            elif response.get('result:') == 'confirmed':
                 host = response['host']
                 port = response['port']
 
@@ -148,6 +153,20 @@ class Protocol(CommonProtocol, Fysom):
         self.send_message(RequestChat(user_name), on_response).addErrback(
             self.chat_rejected
         )
+
+
+    def on_chat_confirmed(self, event):
+
+        time.sleep(1)
+        host = event.args[0]
+        port = event.args[1]
+
+        self.f = simpleclient.EchoFactory()
+        reactor.connectTCP(host, port, self.f)
+
+    def send_msg(self, line):
+        self.f.writeMsg(line)
+
 
     def on_after_request_user_list(self, event):
         def on_response(response):
@@ -171,7 +190,13 @@ class Protocol(CommonProtocol, Fysom):
 
     def chat_channel_open(self):
         # TODO: actually do it
-        self.chat_port = 55555
+            self.chat_port = 55555
+
+    def start_chat(self, port):
+            if not self.is_transport_udp():
+                factory = protocol.ServerFactory()
+                factory.protocol = simpleserv.Echo
+                reactor.listenTCP(port,factory)
 
     def chat_channel_close(self):
         # TODO: actually do it
@@ -200,6 +225,7 @@ class Protocol(CommonProtocol, Fysom):
         self.requesting_user = None
 
         self.send_response({'result': 'confirmed', 'port': self.chat_port})
+        self.start_chat(self.chat_port)
 
     def on_after_chat_reject(self, event):
         self.log("Rejecting chat request for {0}", self.requesting_user)
