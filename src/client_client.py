@@ -9,6 +9,8 @@ from twisted.internet.protocol import ClientFactory
 from twisted.python import log
 
 from communic8.protocol import client, CommonClientFactory
+from twisted.internet import ssl, task, protocol, endpoints, defer
+from twisted.python.modules import getModule
 
 class CommandProcessor(Cmd):
     prompt = '>> '
@@ -62,26 +64,22 @@ class CommandProcessor(Cmd):
         pass
 
 
-def main(port, host):
+def main(reactor, port, host):
     log.startLogging(sys.stderr, setStdout=False)
 
     def run_loop(proto):
         proc = CommandProcessor(proto)
         reactor.callInThread(proc.cmdloop)
 
-    factory = CommonClientFactory(client.Protocol, lambda p: run_loop(p),
-                                  None, None, is_initiator=host is not None)
-
-    if host:
-        reactor.connectTCP(host, port, factory)
-    else:
-        connector = reactor.listenTCP(port, factory)
-        print 'Listening on {addr.host}:{addr.port}'.format(
-            addr=connector.getHost())
-
-    reactor.run()
+    factory = protocol.Factory.forProtocol(clien_client.Factory)
+    certData = getModule(__name__).filePath.sibling('server.pem').getContent()
+    authority = ssl.Certificate.loadPEM(certData)
+    options = ssl.optionsForClientTLS(u'example.com', authority)
+    endpoints.SSL4ClientEndpoint(reactor, 'localhost', 8125,
+                                            options).connect(factory)
 
 if __name__ == '__main__':
+    import clien_client
     port = int(sys.argv[1])
 
     if len(sys.argv) > 2:
@@ -89,5 +87,5 @@ if __name__ == '__main__':
     else:
         host = None
 
-    main(port, host)
+    task.react(client.main(port, host))
 
