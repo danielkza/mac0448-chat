@@ -68,11 +68,16 @@ class CommandProcessor(Cmd):
         pass
 
 
-def main():
+def main(type):
     log.startLogging(sys.stderr, setStdout=False)
 
-    client_factory = client_server.Factory()
-    reactor.connectTCP('127.0.0.1', 8125, client_factory)
+    if type == "1":
+        client_factory = client_server.Factory()
+        reactor.connectTCP('127.0.0.1', 8125, client_factory)
+    else :
+        client_factory = client_server.FactoryUDP()
+        reactor.listenUDP(0, client_factory)
+
 
     def wait_for_protocol():
         while len(client_factory.instances) == 0:
@@ -87,8 +92,8 @@ def main():
         reactor.callInThread(proc.cmdloop)
 
     d.addCallback(run_loop)
+
     reactor.run()
 
 if __name__ == '__main__':
-    main()
-
+    main(sys.argv[1])

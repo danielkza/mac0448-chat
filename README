@@ -12,7 +12,8 @@ Com o programa em execução, os seguintes comandos estão disponíveis:
 - initiate "user": Envia um pedido de conversa para o usuário "user"
 - confirm: ao receber um pedido de conversa, o usuário pode digitar esse comando para aceitá-lo.
 - reject: ao receber um pedido de conversa, o usuário pode digitar esse comando para negá-lo.
-- send_chat "text": Envia "text" pelo canal de chat(Só funciona depois de estabelecida uma conexão com um outro cliente)
+- send_chat "text": Envia "text" pelo canal de chat. (Só funciona depois de estabelecida uma conexão com um outro cliente)
+- send_file "file": Transfere o arquivo "file" para o outro cliente.(Só funciona depois de estabelecida uma conexão com um outro cliente)
 - logout: Desloga do sistema mas não encerra o programa usuário.
 - quit: desloga do sistema e encerra o programa usuário
 

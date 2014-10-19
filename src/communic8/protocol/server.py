@@ -6,9 +6,10 @@ from communic8.model.user import User, UserDatabase, UserNameAlreadyUsed, \
 from communic8.model.messages import *
 from communic8.protocol import CommonProtocol
 from communic8.util import Fysom
+from twisted.internet.protocol import DatagramProtocol
 
 
-class Protocol(CommonProtocol, Fysom):
+class Protocol(CommonProtocol, Fysom, DatagramProtocol):
     ERROR_MESSAGES = {
         'LOGIN_FAILED_USER_NAME_TAKEN': "An user with name '{name}' is already logged in",
         'LOGIN_FAILED_ADDRESS_IN_USE': "An user with address {host}:{port!d} is already logged in",
@@ -56,6 +57,12 @@ class Protocol(CommonProtocol, Fysom):
     @property
     def message_dispatcher(self):
         return self.factory.message_dispatcher
+
+    def on_datagram_received(self, datagram, adress):
+        print(datagram)
+
+    def getMsg(self, datagram):
+        print (datagram)
 
     def on_message_received(self, message):
         for msg_cls, action in {
@@ -278,3 +285,27 @@ class Factory(protocol.ServerFactory):
             return None
 
         return protocol.ServerFactory.buildProtocol(self, address)
+
+class FactoryUDP(DatagramProtocol):
+    def __init__(self):
+        self.user_database = UserDatabase()
+        self.message_dispatcher = MessageDispatcher().register(
+            Connect, Quit,
+            Login, Logout,
+            ListUsers,
+            RequestChat, ChatRequested,
+            EndChat,
+        )
+        self.user_protocols = {}
+
+    def set_protocol_user(self, user_protocol, user_name):
+        self.user_protocols[user_name] = user_protocol
+
+    def remove_protocol_user(self, user_name):
+        del self.user_protocols[user_name]
+
+    def get_user_protocol(self, user_name, default=None):
+        return self.user_protocols.get(user_name, default)
+
+    def datagramReceived(self, datagram, adress):
+        Protocol.getMsg(Protocol(), datagram)

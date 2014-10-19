@@ -10,9 +10,9 @@ from communic8.protocol import CommonProtocol
 from communic8.util import Fysom
 from communic8.protocol import simpleserv
 from communic8.protocol import simpleclient
+from twisted.internet.protocol import DatagramProtocol
 
-
-class Protocol(CommonProtocol, Fysom):
+class Protocol(CommonProtocol, Fysom, DatagramProtocol):
     async_transitions = {'connect', 'login', 'logout', 'request_user_list'}
     message_dispatcher = MessageDispatcher().register(ChatRequested)
 
@@ -262,5 +262,21 @@ class Factory (protocol.ClientFactory):
 
     def buildProtocol(self, addr):
         proto = protocol.ClientFactory.buildProtocol(self, addr)
+        self.instances.append(proto)
+        return proto
+
+class FactoryUDP(DatagramProtocol):
+    protocol = DatagramProtocol
+
+    def __init__(self):
+        self.message_dispatcher = MessageDispatcher().register(
+         ChatRequested,
+        )
+
+        self.instances = []
+
+    def startProtocol(self):
+        self.transport.connect('127.0.0.1', 8125)
+        proto = protocol.DatagramProtocol.startProtocol(self)
         self.instances.append(proto)
         return proto
